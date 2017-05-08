@@ -1,17 +1,19 @@
 package com.barackbao.photogallery;
 
+import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 
-import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by BarackBao on 2017/5/6.
@@ -20,6 +22,7 @@ import java.io.IOException;
 public class PhotoGalleryFragment extends Fragment {
     private RecyclerView mRecyclerView;
     private static final String TAG = "PhotoGalleryFragment";
+    private List<GalleryItem> mItems = new ArrayList<>();
 
     public static PhotoGalleryFragment newInstance() {
         return new PhotoGalleryFragment();
@@ -43,21 +46,74 @@ public class PhotoGalleryFragment extends Fragment {
         mRecyclerView = (RecyclerView) v.findViewById
                 (R.id.fragment_photo_gallery_recycler_view);
         mRecyclerView.setLayoutManager(new GridLayoutManager(getContext(), 3));
-
+        setupAdapter();
         return v;
     }
 
+    private void setupAdapter() {
 
-    private class FetchItemsTask extends AsyncTask<Void, Void, Void> {
+        if (isAdded()) {
+            mRecyclerView.setAdapter(new PhotoAdapter(mItems));
+        }
+    }
+
+    private class PhotoHolder extends RecyclerView.ViewHolder {
+        private ImageView mItemImageView;
+
+
+        public PhotoHolder(View itemView) {
+            super(itemView);
+
+            mItemImageView = (ImageView) itemView.findViewById
+                    (R.id.fragment_photo_gallery_image_view);
+        }
+
+        //        public void bindGalleryItem(GalleryItem item) {
+//            //这里先将标题显示出来
+//        }
+        public void bindDrawable(Drawable drawable) {
+            mItemImageView.setImageDrawable(drawable);
+        }
+    }
+
+    private class PhotoAdapter extends RecyclerView.Adapter<PhotoHolder> {
+        private List<GalleryItem> mGalleryItems;
+
+        public PhotoAdapter(List<GalleryItem> galleryItems) {
+            mGalleryItems = galleryItems;
+        }
+
         @Override
-        protected Void doInBackground(Void... params) {
-            try {
-                String result = new FlickrFetchr().getUrlString("https://www.bignerdranch.com");
-                Log.i(TAG, "Fetched contents of URL: " + result);
-            } catch (IOException ioe) {
-                Log.e(TAG, "Failed to fetch URL: ", ioe);
-            }
-            return null;
+        public PhotoHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            LayoutInflater layoutInflater = LayoutInflater.from(getActivity());
+            View view = layoutInflater.inflate(R.layout.gallery_item, parent, false);
+            return new PhotoHolder(view);
+        }
+
+        @Override
+        public void onBindViewHolder(PhotoHolder holder, int position) {
+            GalleryItem galleryItem = mGalleryItems.get(position);
+            Drawable placeholder = getResources().getDrawable(R.drawable.barack);
+            holder.bindDrawable(placeholder);
+        }
+
+        @Override
+        public int getItemCount() {
+            return mGalleryItems.size();
+        }
+    }
+
+
+    private class FetchItemsTask extends AsyncTask<Void, Void, List<GalleryItem>> {
+        @Override
+        protected List<GalleryItem> doInBackground(Void... params) {
+            return new FlickrFetchr().fetchItems();
+        }
+
+        @Override
+        protected void onPostExecute(List<GalleryItem> galleryItems) {
+            mItems = galleryItems;
+            setupAdapter();
         }
     }
 
