@@ -23,10 +23,30 @@ public class ThumbnailDownloader<T> extends HandlerThread {
     private Boolean mHasQuit = false;
     private Handler mRequestHandler;
     private ConcurrentHashMap<T, String> mRequestMap = new ConcurrentHashMap<>();
+    private Handler mResponseHandler;
+    //判断图片下载完成的监听器
+    private ThumbnailDownloadListener<T> mThumbnailDownloadListener;
+
+    public interface ThumbnailDownloadListener<T> {
+        /**
+         * 此方法用于将下载结果传递给UI层
+         *
+         * @param target
+         * @param thumbnail
+         */
+        void onThumbnailDownloaded(T target, Bitmap thumbnail);
+
+    }
+
+    public void setThumbnailDownloadListener(ThumbnailDownloadListener<T>
+                                                     thumbnailDownloadListener) {
+        mThumbnailDownloadListener = thumbnailDownloadListener;
+    }
 
 
-    public ThumbnailDownloader() {
+    public ThumbnailDownloader(Handler responseHandler) {
         super(TAG);
+        mResponseHandler = responseHandler;
     }
 
     @Override
@@ -63,6 +83,11 @@ public class ThumbnailDownloader<T> extends HandlerThread {
         }
     }
 
+
+    public void clearQueue() {
+        mRequestHandler.removeMessages(MESSAGE_DOWNLOAD);
+    }
+
     private void handleRequest(final T target) {
         try {
             final String url = mRequestMap.get(target);
@@ -75,6 +100,18 @@ public class ThumbnailDownloader<T> extends HandlerThread {
             final Bitmap bitmap = BitmapFactory
                     .decodeByteArray(bitmapBytes, 0, bitmapBytes.length);
             Log.i(TAG, "Bitmap created");
+
+            mResponseHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    if (mRequestMap.get(target) != url ||
+                            mHasQuit) {
+                        return;
+                    }
+                    mRequestMap.remove(target);
+                    mThumbnailDownloadListener.onThumbnailDownloaded(target, bitmap);
+                }
+            });
         } catch (IOException e) {
             Log.e(TAG, "Error downloading image", e);
         }
